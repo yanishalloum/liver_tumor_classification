@@ -56,14 +56,25 @@ The images are windowed according to the [dicom parameters](https://towardsdatas
   <img src="/result_images/enhanced_image.png" width="300">
 </p>
 
-We label the scans into two classes (Sane, Tumor) using the masks: 
+The scans are labeled into two classes (Sane, Tumor) using the masks: 
 
 <p align="center">
   <img src="/result_images/classification.png" width="300">
 </p>
 
-## Models with their Accuracy of Prediction
+Finally, the scans and masks are dividing in train (60%), validation (20%) and test (20%)
 
+## Model training
+
+- 1st model: simple CNN model
+
+
+- 2nd model: pretrained VGG16
+
+  
+- 3rd model: not pretrained VGG16
+
+  
 |          Model           | Accuracy |
 | ------------------------ | -------- |
 |    Simple CNN Model      |          |
