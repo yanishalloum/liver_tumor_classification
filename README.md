@@ -52,9 +52,7 @@ Then, the slices and masks are processed to be of better quality:
 
 The images are windowed according to the [dicom parameters](https://towardsdatascience.com/a-matter-of-grayscale-understanding-dicom-windows-1b44344d92bd) for the liver to be more visible:
 
-<p align="center">
-  <img src="/result_images/enhanced_image.png" width="300">
-</p>
+
 
 The scans are labeled into two classes (Sane, Tumor) using the masks: 
 
