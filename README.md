@@ -38,3 +38,8 @@ I used the "Liver Segmentation Database" from Kaggle
 - [Part 1](https://www.kaggle.com/datasets/andrewmvd/lits-png)
 - [Part 2](https://www.kaggle.com/datasets/andrewmvd/liver-tumor-segmentation-part-2)
   
+
+# References
+
+- TWIMLfest: Fundamentals of Medical Image Processing for Deep Learning, Sam Charrington
+- Tenebris97 on Kaggle
