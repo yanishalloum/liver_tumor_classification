@@ -33,7 +33,7 @@ pip install -r requirements.txt
 
 ## Dataset Links
 
-All the datasets were used from kaggle.
+I used the "Liver Segmentation Database" from Kaggle
 
 - [Part 1](https://www.kaggle.com/datasets/andrewmvd/lits-png)
 - [Part 2](https://www.kaggle.com/datasets/andrewmvd/liver-tumor-segmentation-part-2)
