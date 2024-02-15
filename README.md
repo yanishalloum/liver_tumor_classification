@@ -62,7 +62,7 @@ The scans are labeled into two classes (Sane, Tumor) using the masks:
   <img src="/result_images/classification.png" width="300">
 </p>
 
-Finally, the scans and masks are dividing in train (60%), validation (20%) and test (20%)
+Finally, the scans and masks are divided in train (60%), validation (20%) and test (20%)
 
 ## Model training
 
