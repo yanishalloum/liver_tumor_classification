@@ -72,10 +72,13 @@ structure : ...
 <p align="center">
   <img src="/result_images/cnn_curves.png" width="800">
 </p>
-<p align="center">
-  <img src="/result_images/cnn_cm_train.png" width="317">
-  <img src="/result_images/cnn_cm.png" width="300">
-</p>
+<figure> 
+  <p align="center">
+    <img src="/result_images/cnn_cm_train.png" width="317" alt="Matrice de confusion (Entraînement)">
+    <img src="/result_images/cnn_cm.png" width="300" alt="Matrice de confusion">
+  </p>
+  <figcaption align="center">-------------------------------------------------------Train confusion matrix - Test confusion matrix-------------------------------------</figcaption>
+</figure>
 
 - 2nd model: pretrained VGG16
 
