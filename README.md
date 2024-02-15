@@ -68,7 +68,10 @@ Finally, the scans and masks are divided in train (60%), validation (20%) and te
 
 - 1st model: simple CNN model
 
-structure : ...
+structure : 
+3 convolutional + Max Pooling layers (relu)
+1 512 neurons dense layer (relu)
+1 1 neuron dense layer (sigmoid)
 <p align="center">
   <img src="/result_images/cnn_curves.png" width="800">
 </p>
