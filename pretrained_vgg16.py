@@ -56,15 +56,16 @@ model = Model(inputs=vgg.input, outputs=x)
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 
-
 batch_size = 32
 
 # Match labels to file paths
 training_df = scan_info[scan_info['division'] == 'train']
 validation_df = scan_info[scan_info['division'] == 'valid']
+test_df = scan_info[scan_info['division'] == 'test']
 
 training_datagen = ImageDataGenerator(rescale=1./255, preprocessing_function=preprocess_input)
 validation_datagen = ImageDataGenerator(rescale=1./255, preprocessing_function=preprocess_input)
+test_datagen = ImageDataGenerator(rescale=1./255, preprocessing_function=preprocess_input)
 
 training_generator = training_datagen.flow_from_dataframe(dataframe=training_df,
                                                           directory=training_dir,
@@ -82,5 +83,66 @@ validation_generator = validation_datagen.flow_from_dataframe(dataframe=validati
                                                               batch_size=batch_size,
                                                               class_mode='categorical')
 
+test_generator = test_datagen.flow_from_dataframe(dataframe=test_df,
+                                                  directory=test_dir,
+                                                  x_col='file_path',
+                                                  y_col='is_tumor',
+                                                  target_size=image_size,
+                                                  batch_size=batch_size,
+                                                  class_mode='categorical')
 
-training_generator.class_indices
+print(training_generator.class_indices)
+
+train_images = len(scan_info[scan_info['division'] == 'train'])
+valid_images = len(scan_info[scan_info['division'] == 'valid'])
+test_images = len(scan_info[scan_info['division'] == 'test'])
+
+
+history = model.fit(training_generator,
+                    steps_per_epoch = train_images // batch_size,  
+                    epochs = 1,  # change this for better results
+                    validation_data = validation_generator,
+                    validation_steps = valid_images // batch_size)  
+
+print ('Training Accuracy = ' + str(history.history['accuracy']))
+print ('Validation Accuracy = ' + str(history.history['val_accuracy']))
+
+# Evaluate the model on the test set
+test_images = len(scan_info[scan_info['division'] == 'test'])
+test_results = model.evaluate(test_generator, 
+                              steps = test_images // batch_size)
+
+# Plot training and validation metrics
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.legend()
+plt.title('Training and Validation Metrics')
+plt.xlabel('Epochs')
+plt.show()
+
+# Generate confusion matrix for the test set
+from sklearn.metrics import confusion_matrix, classification_report
+
+# Predict on the test set
+test_predictions = model.predict(test_generator, 
+                                 steps=test_images // batch_size + 1)
+test_predictions = np.argmax(test_predictions, 
+                             axis=1)
+
+# Get the true labels
+test_true_labels = test_generator.classes
+
+# Generate confusion matrix
+conf_matrix = confusion_matrix(test_true_labels, 
+                               test_predictions)
+
+# Print confusion matrix
+print("Confusion Matrix:")
+print(conf_matrix)
+
+# Print classification report
+print("Classification Report:")
+print(classification_report(test_true_labels, 
+                            test_predictions))
