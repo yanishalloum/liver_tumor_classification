@@ -10,24 +10,24 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report
 from tqdm import tqdm
 
-# Chargement des données à partir du fichier scan_info.csv
+# Load the CSV data file
 df = pd.read_csv('scan_info.csv')
 
-# Création d'une colonne 'label' en utilisant le LabelEncoder pour convertir les classes en numériques
+# Create the label column C
 label_encoder = LabelEncoder()
 df['label'] = label_encoder.fit_transform(df['is_tumor'])
 
-# Définition des chemins des dossiers
-train_path = r'C:/Users/yanis/OneDrive/Documents/projet_reseaux_neurones/train/train_scans/'
-train_mask_path = r'C:/Users/yanis/OneDrive/Documents/projet_reseaux_neurones/train/train_masks/'
+# Define the directory paths 
+train_path = 'train/train_scans/'
+train_mask_path = 'train/train_masks/'
 
-val_path = r'C:/Users/yanis/OneDrive/Documents/projet_reseaux_neurones/valid/valid_scans/'
-val_mask_path = r'C:/Users/yanis/OneDrive/Documents/projet_reseaux_neurones/valid/valid_masks/'
+val_path = 'valid/valid_scans/'
+val_mask_path = 'valid/valid_masks/'
 
-test_path = r'C:/Users/yanis/OneDrive/Documents/projet_reseaux_neurones/test/test_scans/'
-test_mask_path = r'C:/Users/yanis/OneDrive/Documents/projet_reseaux_neurones/test/test_masks/'
+test_path = 'test/test_scans/'
+test_mask_path = 'test/test_masks/'
 
-# Fonction pour charger les images et les masques
+# Masks and scans loading function
 def load_images_and_masks(dataframe, image_path, mask_path):
     images = []
     masks = []
@@ -44,7 +44,7 @@ def load_images_and_masks(dataframe, image_path, mask_path):
             print(f"Error loading images for image: {image_filepath}")
             continue
 
-        # Redimensionnement des images
+        # Images resizing
         image = cv2.resize(image, (224, 224))
         mask = cv2.resize(mask, (224, 224))
 
@@ -54,12 +54,12 @@ def load_images_and_masks(dataframe, image_path, mask_path):
 
     return np.array(images), np.array(masks), np.array(labels)
 
-# Chargement des données d'entraînement, de validation et de test
+# Load the data
 train_images, train_masks, train_labels = load_images_and_masks(df[df['division'] == 'train'], train_path, train_mask_path)
 val_images, val_masks, val_labels = load_images_and_masks(df[df['division'] == 'valid'], val_path, val_mask_path)
 test_images, test_masks, test_labels = load_images_and_masks(df[df['division'] == 'test'], test_path, test_mask_path)
 
-# Normalisation des images et masques
+# Normalize images and masks
 train_images = train_images / 255.0
 val_images = val_images / 255.0
 test_images = test_images / 255.0
@@ -68,7 +68,7 @@ train_masks = train_masks / 255.0
 val_masks = val_masks / 255.0
 test_masks = test_masks / 255.0
 
-# Définition du modèle CNN
+# CNN model
 model = models.Sequential()
 model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=(224, 224, 1)))
 model.add(layers.MaxPooling2D((2, 2)))
@@ -80,14 +80,25 @@ model.add(layers.Flatten())
 model.add(layers.Dense(512, activation='relu'))
 model.add(layers.Dense(1, activation='sigmoid'))
 
-# Compilation du modèle
+# Model compilation
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# Entraînement du modèle avec data augmentation
-train_datagen = ImageDataGenerator(rotation_range=20, width_shift_range=0.2, height_shift_range=0.2, shear_range=0.2, zoom_range=0.2, horizontal_flip=True, fill_mode='nearest')
-train_generator = train_datagen.flow(train_images.reshape(-1, 224, 224, 1), train_labels, batch_size=32)
+# Training with data augmentation
+train_datagen = ImageDataGenerator(rotation_range=20, 
+                                   width_shift_range=0.2, 
+                                   height_shift_range=0.2, 
+                                   shear_range=0.2, 
+                                   zoom_range=0.2, 
+                                   horizontal_flip=True, 
+                                   fill_mode='nearest')
 
-history = model.fit(train_generator, epochs=1, validation_data=(val_images.reshape(-1, 224, 224, 1), val_labels),
+train_generator = train_datagen.flow(train_images.reshape(-1, 224, 224, 1), 
+                                     train_labels, 
+                                     batch_size=32)
+
+history = model.fit(train_generator, 
+                    epochs=50, 
+                    validation_data=(val_images.reshape(-1, 224, 224, 1), val_labels),
                     verbose=1)
 
 print('history is made\n')
@@ -125,12 +136,13 @@ def plot_metrics(history, save_path=None):
 
     if save_path:
         plt.savefig(os.path.join(save_path, 'metrics_plot.png'))
+        plt.show()
     else:
         plt.show()
 
 
 # Fonction pour afficher la matrice de confusion
-def plot_confusion_matrix(y_true, y_pred, classes, save_path=None):
+def plot_confusion_matrix(y_true, y_pred, classes, title, save_path=None):
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(figsize=(8, 6))
     plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
@@ -147,7 +159,8 @@ def plot_confusion_matrix(y_true, y_pred, classes, save_path=None):
             plt.text(j, i, str(cm[i, j]), ha='center', va='center', color='red')
 
     if save_path:
-        plt.savefig(os.path.join(save_path, 'confusion_matrix.png'))
+        plt.savefig(os.path.join(save_path, title))
+        plt.show()
     else:
         plt.show()
 
@@ -167,9 +180,9 @@ print(f'Test Accuracy: {test_accuracy}')
 plot_metrics(history, save_path=r'C:\Users\yanis\OneDrive\Documents\projet_reseaux_neurones')
 
 # Affichage de la matrice de confusion
-plot_confusion_matrix(test_labels, test_predictions, classes=['Foie Sain', 'Foie Malade'], save_path=r'C:\Users\yanis\OneDrive\Documents\projet_reseaux_neurones')
+plot_confusion_matrix(test_labels, test_predictions, classes=['Foie Sain', 'Foie Malade'], title='test_confusion_matrix.png', save_path=r'C:\Users\yanis\OneDrive\Documents\projet_reseaux_neurones')
 
-plot_confusion_matrix(train_labels, train_predictions, classes=['Foie Sain', 'Foie Malade'], save_path=r'C:\Users\yanis\OneDrive\Documents\projet_reseaux_neurones')
+plot_confusion_matrix(train_labels, train_predictions, classes=['Foie Sain', 'Foie Malade'], title='train_confusion_matrix.png', save_path=r'C:\Users\yanis\OneDrive\Documents\projet_reseaux_neurones')
 
 # Rapport de classification
 print("Classification Report:\n", classification_report(test_labels, test_predictions))
