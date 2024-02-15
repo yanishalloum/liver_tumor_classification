@@ -19,7 +19,7 @@ git clone https://github.com/yanishalloum/liver_tumor_classification.git
 pip install -r requirements.txt
 ```
 
-3. Install the database:
+3. Install the database and launch preprocess.py:
 
 ## Dataset Links
 
