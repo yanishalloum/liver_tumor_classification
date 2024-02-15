@@ -68,6 +68,14 @@ Finally, the scans and masks are dividing in train (60%), validation (20%) and t
 
 - 1st model: simple CNN model
 
+structure : ...
+<p align="center">
+  <img src="/result_images/cnn_curves.png" width="800">
+</p>
+<p align="center">
+  <img src="/result_images/cnn_cm_train.png" width="317">
+  <img src="/result_images/cnn_cm.png" width="300">
+</p>
 
 - 2nd model: pretrained VGG16
 
@@ -77,7 +85,7 @@ Finally, the scans and masks are dividing in train (60%), validation (20%) and t
   
 |          Model           | Accuracy |
 | ------------------------ | -------- |
-|    Simple CNN Model      |          |
+|    Simple CNN Model      |    77%   |
 |    Pretrained VGG16      |          |
 |    Not pretrained VGG16  |          |
 
