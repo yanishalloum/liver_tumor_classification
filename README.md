@@ -98,7 +98,7 @@ structure :
 - 2nd model: pretrained VGG16
 
 <p align="center">
-  <img src="pretrained_vgg16_model.jpg" width="300">
+  <img src="result_images/pretrained_vgg16_model.jpg" width="500">
 </p>
  
 - 3rd model: not pretrained VGG16
