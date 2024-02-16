@@ -75,20 +75,32 @@ structure :
 <p align="center">
   <img src="/result_images/cnn_curves.png" width="800">
 </p>
-<figure> 
-  <figcaption align="center">
-  -------------------------------------------Train confusion matrix - Test confusion matrix-------------------------------------
-  </figcaption>
+
+<figure>
+
+  <!-- Train confusion matrix -->
   <p align="center">
-    <img src="/result_images/cnn_cm_train.png" width="317" alt="Matrice de confusion (Entraînement)">
-    <img src="/result_images/cnn_cm.png" width="300" alt="Matrice de confusion">
+    Train confusion matrix
+    <br>
+    <img src="/result_images/cnn_cm_train.png" width="517" alt="Matrice de confusion (Entraînement)">
   </p>
-  
+
+  <!-- Test confusion matrix -->
+  <p align="center">
+    Test confusion matrix
+    <br>
+    <img src="/result_images/cnn_cm.png" width="500" alt="Matrice de confusion">
+  </p>
+
 </figure>
+
 
 - 2nd model: pretrained VGG16
 
-  
+<p align="center">
+  <img src="pretrained_vgg16_model.jpg" width="300">
+</p>
+ 
 - 3rd model: not pretrained VGG16
 
 
