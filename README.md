@@ -100,7 +100,19 @@ structure :
 <p align="center">
   <img src="result_images/pretrained_vgg16_model.jpg" width="500">
 </p>
- 
+
+<p align="center">
+  <img src="result_images/training_validation_metrics.png" width="500">
+</p>
+
+<p align="center">
+  <img src="result_images/confusion_matrix.png" width="500">
+</p>
+
+Clear overfitting issue: quickly reaches >95% accuracy on test and validation but a much lower test accuracy.
+Reasons: Structure may be too complex for the project.
+Possible solutions: Regularization: Dropout, data augmentation...
+
 - 3rd model: not pretrained VGG16
 
 
