@@ -121,7 +121,7 @@ Possible solutions: Regularization: Dropout, data augmentation...
 |          Model           | Accuracy |
 | ------------------------ | -------- |
 |    Simple CNN Model      |    77%   |
-|    Pretrained VGG16      |          |
+|    Pretrained VGG16      |    54%   |
 |    Not pretrained VGG16  |          |
 
 # References
