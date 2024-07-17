@@ -1,7 +1,7 @@
 numpy==1.24.1
 tensorflow==2.15.0
 keras==2.15.0
-tqdm=4.66.1
+tqdm==4.66.1
 pandas==2.03
 nibabel==5.2.0
 matplotlib==3.8.0
