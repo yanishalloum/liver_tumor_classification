@@ -19,7 +19,7 @@ paths:
   raw_segmentations_root: "/kaggle/input/datasets/andrewmvd/liver-tumor-segmentation"
   raw_segmentations_subdir: "segmentations"
   # Où le pipeline de preprocessing écrit les slices 2D + le CSV d'index.
-  processed_dir: "/kaggle/working/processed"
+  processed_dir: "/kaggle/temp/processed"
   output_dir: "/kaggle/working/outputs"
 
 data:
