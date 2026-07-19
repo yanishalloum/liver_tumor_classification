@@ -157,7 +157,7 @@ def process_dataset(config: dict) -> str:
             slice_name = f"patient{pair['patient_id']}_slice{s}"
             img_path = slices_dir / f"{slice_name}.npy"
             mask_path = masks_dir / f"{slice_name}.npy"
-            np.save(img_path, img_slice.astype(np.float32))
+            np.save(img_path, img_slice.astype(np.float16))
             np.save(mask_path, mask_slice.astype(np.uint8))
 
             records.append({
