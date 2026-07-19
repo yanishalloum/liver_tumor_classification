@@ -1,0 +1,64 @@
+# ==============================================================================
+# Configuration centrale du projet.
+# Idée pédagogique : au lieu de valeurs codées en dur dispersées dans les
+# scripts (comme dans la v1 : chemins Windows, epochs=1 oublié, etc.), tout
+# vit ici. Tu changes un chiffre -> tu relances -> tu compares. C'est aussi
+# ce qui te permet de garder une trace reproductible de chaque expérience.
+# ==============================================================================
+
+paths:
+  # Le dataset LiTS complet est réparti sur DEUX datasets Kaggle distincts
+  # (confirmé par exploration : aucun chevauchement, union = 131 patients) :
+  #   - liver-tumor-segmentation        : volumes 0-50  + les 131 segmentations
+  #   - liver-tumor-segmentation-part-2 : volumes 51-130 (pas de segmentations)
+  # Les deux doivent être ajoutés via "Add Input" dans le notebook Kaggle.
+  raw_dataset_roots:
+    - "/kaggle/input/datasets/andrewmvd/liver-tumor-segmentation"
+    - "/kaggle/input/datasets/andrewmvd/liver-tumor-segmentation-part-2"
+  # Les segmentations ne sont présentes que dans le premier des deux dossiers ci-dessus.
+  raw_segmentations_root: "/kaggle/input/datasets/andrewmvd/liver-tumor-segmentation"
+  raw_segmentations_subdir: "segmentations"
+  # Où le pipeline de preprocessing écrit les slices 2D + le CSV d'index.
+  processed_dir: "/kaggle/working/processed"
+  output_dir: "/kaggle/working/outputs"
+
+data:
+  # Fenêtrage DICOM pour le foie (cf. radiopaedia.org/articles/windowing-ct)
+  window_level: 30
+  window_width: 150
+  image_size: [256, 256]   # MONAI/U-Net travaillent bien avec des puissances de 2
+  # IMPORTANT (bug corrigé de la v1) : le split doit se faire par PATIENT,
+  # pas par slice. Sinon deux slices voisines du même patient (quasi identiques)
+  # peuvent se retrouver l'une en train et l'autre en test -> fuite de données,
+  # score de test artificiellement gonflé.
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  seed: 42
+
+segmentation:
+  model: "unet"
+  in_channels: 1
+  out_channels: 3          # 0 = background, 1 = foie, 2 = tumeur
+  channels: [16, 32, 64, 128, 256]
+  strides: [2, 2, 2, 2]
+  num_res_units: 2
+  loss: "dice_ce"           # Dice + CrossEntropy combinées
+  learning_rate: 1e-4
+  batch_size: 16
+  epochs: 100
+  early_stopping_patience: 15
+
+classification:
+  model: "resnet18"          # baseline moderne, remplace le VGG16 figé de la v1
+  pretrained: true
+  freeze_backbone: false     # v1 gelait tout -> sous-apprentissage ; on fine-tune
+  dropout: 0.3
+  learning_rate: 1e-4
+  batch_size: 32
+  epochs: 30
+  early_stopping_patience: 8
+
+logging:
+  use_wandb: false            # passe à true si tu veux un suivi d'expériences en ligne
+  project_name: "liver-tumor-segmentation"
