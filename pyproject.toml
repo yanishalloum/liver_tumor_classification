@@ -7,9 +7,13 @@ license = "MIT"
 authors = [{ name = "Yanis Halloum" }]
 requires-python = ">=3.11"
 dependencies = [
-    "numpy>=2.0",
+    "numpy>=1.26",
     "nibabel>=5.3",
+    "scipy>=1.11",
 ]
+
+[project.scripts]
+livertumor = "livertumor.cli:main"
 
 [project.optional-dependencies]
 # Heavy deep-learning stack, added from step 2 onward. Kept optional so CI stays fast.
