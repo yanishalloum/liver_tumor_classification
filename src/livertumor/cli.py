@@ -96,6 +96,16 @@ def _preprocess(args: argparse.Namespace) -> None:
     print(json.dumps(summary["intensity"], indent=2))
 
 
+def _train(args: argparse.Namespace) -> None:
+    from dataclasses import fields
+
+    from livertumor.training.train import TrainConfig, train
+
+    names = {f.name for f in fields(TrainConfig)}
+    config = TrainConfig(**{k: v for k, v in vars(args).items() if k in names and v is not None})
+    print("results in", train(config))
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="livertumor", description=__doc__)
@@ -128,6 +138,24 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--spacing", type=float, nargs=3, default=[0.77, 0.77, 1.0], metavar="MM")
     p.add_argument("--workers", type=int, default=2)
     p.set_defaults(func=_preprocess)
+
+    p = sub.add_parser("train", help="Train the 2.5D U-Net baseline (needs [train])")
+    p.add_argument("--dataset-dir", dest="dataset_dir", required=True)
+    p.add_argument("--out-dir", dest="out_dir", required=True)
+    for name, kind in (
+        ("epochs", int),
+        ("samples-per-epoch", int),
+        ("batch-size", int),
+        ("learning-rate", float),
+        ("patch-size", int),
+        ("context", int),
+        ("base-channels", int),
+        ("num-workers", int),
+        ("seed", int),
+        ("max-val-cases", int),
+    ):
+        p.add_argument(f"--{name}", dest=name.replace("-", "_"), type=kind)
+    p.set_defaults(func=_train)
 
     p = sub.add_parser("figures", help="Render illustrative scan figures (needs [viz])")
     p.add_argument("--data-root", nargs="+", required=True)
