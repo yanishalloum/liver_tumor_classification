@@ -9,7 +9,7 @@ __pycache__/
 htmlcov/
 
 # Data and model outputs: never commit medical images or weights
-data/
+/data/
 *.nii
 *.nii.gz
 *.npz
