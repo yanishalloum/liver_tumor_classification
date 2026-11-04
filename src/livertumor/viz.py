@@ -166,16 +166,13 @@ def windowing_figure(vol: Volume, out: Path) -> Path:
         label="everything else",
         density=True,
     )
-    for (level, width), name in ((ABDOMEN_WINDOW, "40/400"), (NARROW_LIVER_WINDOW, "30/150")):
+    top = ax.get_ylim()[1]
+    for (level, width), name, height in (
+        (ABDOMEN_WINDOW, "window 40/400", 0.97),
+        (NARROW_LIVER_WINDOW, "window 30/150", 0.85),
+    ):
         ax.axvspan(level - width / 2, level + width / 2, color="#2a78d6", alpha=0.08)
-        ax.text(
-            level + width / 2,
-            ax.get_ylim()[1] * 0.95,
-            f" {name}",
-            fontsize=8,
-            color=INK_2,
-            va="top",
-        )
+        ax.text(level + width / 2, top * height, f" {name}", fontsize=8, color=INK_2, va="top")
     ax.set_xlim(-1100, 1000)
     ax.set_yticks([])
     ax.set_xlabel("Hounsfield units")
@@ -189,7 +186,7 @@ def windowing_figure(vol: Volume, out: Path) -> Path:
 
 def orientation_figure(cases: Sequence[Case], out: Path) -> Path:
     """Top: raw array as stored on disk. Bottom: after reorientation to RAS."""
-    fig, axes = plt.subplots(2, len(cases), figsize=(3.4 * len(cases), 7.2))
+    fig, axes = plt.subplots(2, len(cases), figsize=(3.4 * len(cases), 7.2), squeeze=False)
     for col, case in enumerate(cases):
         raw = load_volume(case, canonical=False)
         z = largest_slice(raw.labels >= LIVER, axis=2)
@@ -220,3 +217,69 @@ def _save(fig: plt.Figure, path: Path) -> Path:
     fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return path
+
+
+def preprocessing_figure(
+    raw_case: Case, image_path: Path, label_path: Path, stats: dict, out: Path
+) -> Path:
+    """Coronal views of one case through the pipeline, plus the effect of normalisation.
+
+    1. Stored array, spacing ignored (what a naive pipeline would feed the network).
+    2. Same data shown with its true voxel proportions.
+    3. After reorientation, resampling and body crop.
+    4. Liver intensities before (HU) and after normalisation (z-score).
+    """
+    from livertumor.transforms import normalize_ct
+
+    raw = load_volume(raw_case)
+    proc_img_nii, proc_lab_nii = nib.load(str(image_path)), nib.load(str(label_path))
+    proc_img = np.asarray(proc_img_nii.dataobj, dtype=np.float32)
+    proc_lab = np.asarray(proc_lab_nii.dataobj).astype(np.uint8)
+    proc_spacing = tuple(float(s) for s in proc_img_nii.header.get_zooms()[:3])
+
+    y_raw = largest_slice(raw.labels >= LIVER, axis=1)
+    y_proc = largest_slice(proc_lab >= LIVER, axis=1)
+    raw_cor = radiological_coronal(raw.image[:, y_raw, :])
+    raw_cor_lab = radiological_coronal(raw.labels[:, y_raw, :])
+
+    fig, axd = plt.subplot_mosaic(
+        [["a", "b", "c", "hu"], ["a", "b", "c", "z"]],
+        figsize=(16, 4.8),
+        gridspec_kw={"width_ratios": [1, 1, 1, 1.1]},
+    )
+    sx, _, sz = raw.spacing
+    draw(
+        axd["a"],
+        raw_cor,
+        raw_cor_lab,
+        aspect=1.0,
+        title=f"1 · Voxels drawn as cubes\n({sx:.2f} × {sz:.1f} mm in reality)",
+    )
+    draw(axd["b"], raw_cor, raw_cor_lab, aspect=sz / sx, title="2 · True proportions")
+    draw(
+        axd["c"],
+        radiological_coronal(proc_img[:, y_proc, :]),
+        radiological_coronal(proc_lab[:, y_proc, :]),
+        aspect=proc_spacing[2] / proc_spacing[0],
+        title=f"3 · RAS, {proc_spacing[0]:.2f}×{proc_spacing[1]:.2f}×"
+        f"{proc_spacing[2]:.1f} mm, body crop",
+    )
+
+    liver_hu = proc_img[proc_lab >= LIVER]
+    params = {k: stats[k] for k in ("clip_low", "clip_high", "mean", "std")}
+    for key, values, unit, title in (
+        ("hu", liver_hu, "Hounsfield units", "4 · Liver + tumor intensities: before"),
+        ("z", normalize_ct(liver_hu, **params), "z-score", "after normalisation"),
+    ):
+        ax = axd[key]
+        ax.hist(values, bins=60, color=LIVER_COLOR if key == "z" else "#9b9a95")
+        ax.set_yticks([])
+        ax.set_xlabel(unit, fontsize=9)
+        ax.set_title(title, fontsize=10, loc="left")
+        for side in ("top", "right", "left"):
+            ax.spines[side].set_visible(False)
+    axd["hu"].axvspan(params["clip_low"], params["clip_high"], color="#2a78d6", alpha=0.08)
+    axd["z"].axvline(0, color=INK, lw=0.8)
+    _legend(fig)
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
+    return _save(fig, out / "preprocessing.png")

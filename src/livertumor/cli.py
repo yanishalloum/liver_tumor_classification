@@ -81,6 +81,21 @@ def _figures(args: argparse.Namespace) -> None:
     print("wrote", viz.orientation_figure([cases[i] for i in args.orientation], out))
 
 
+def _preprocess(args: argparse.Namespace) -> None:
+    import json
+    from pathlib import Path
+
+    from livertumor.data.discovery import find_cases
+    from livertumor.preprocess import PreprocessConfig, preprocess_dataset
+
+    split = json.loads(Path(args.split).read_text())
+    config = PreprocessConfig(spacing=tuple(args.spacing))
+    summary = preprocess_dataset(
+        find_cases(args.data_root), split, args.out, config, workers=args.workers
+    )
+    print(json.dumps(summary["intensity"], indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="livertumor", description=__doc__)
@@ -105,6 +120,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="try N seeds and keep the best tumor balance (0 = use --seed)",
     )
     p.set_defaults(func=_split)
+
+    p = sub.add_parser("preprocess", help="Reorient, resample, crop and save (needs [train])")
+    p.add_argument("--data-root", nargs="+", required=True)
+    p.add_argument("--split", required=True, help="splits/lits_split.json")
+    p.add_argument("--out", required=True)
+    p.add_argument("--spacing", type=float, nargs=3, default=[0.77, 0.77, 1.0], metavar="MM")
+    p.add_argument("--workers", type=int, default=2)
+    p.set_defaults(func=_preprocess)
 
     p = sub.add_parser("figures", help="Render illustrative scan figures (needs [viz])")
     p.add_argument("--data-root", nargs="+", required=True)

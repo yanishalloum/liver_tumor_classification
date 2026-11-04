@@ -18,7 +18,7 @@ livertumor = "livertumor.cli:main"
 [project.optional-dependencies]
 # Heavy deep-learning stack, added from step 2 onward. Kept optional so CI stays fast.
 train = [
-    "torch>=2.5",
+    "torch>=2.4",
     "monai>=1.6.1", # 1.6.0 has a known CVE in nnUNetV2Runner
 ]
 # Figures for the README / reports.
@@ -56,6 +56,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
+"notebooks/**" = ["E501"] # long shell commands in runner notebooks
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

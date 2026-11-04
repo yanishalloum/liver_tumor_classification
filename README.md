@@ -19,7 +19,7 @@ a lesion but **where** it is and **how large** it is.
 
 - [x] **0. Foundations** — packaging (`uv`), linting (`ruff`), tests (`pytest`), CI, audit of v0
 - [x] **1. Data** — per-case statistics, exploratory analysis, patient-level split balanced on acquisition group and tumor burden
-- [ ] **2. Preprocessing** — HU windowing, spacing resampling, MONAI transform pipeline
+- [ ] **2. Preprocessing** — RAS reorientation, resampling to 0.77×0.77×1.0 mm, body crop, train-only intensity normalisation (MONAI) ✅ code; Kaggle run pending
 - [ ] **3. 2D baseline** — U-Net on axial slices, Dice + cross-entropy loss, experiment tracking
 - [ ] **4. 3D models** — SegResNet / 3D U-Net with patch sampling, then an nnU-Net v2 reference
 - [ ] **5. Evaluation** — Dice, lesion-wise detection, patient-level sensitivity/specificity

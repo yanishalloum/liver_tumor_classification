@@ -63,6 +63,7 @@ def test_figures_are_written(lits_root, tmp_path):
         viz.gallery_figure([viz.load_volume(c) for c in cases], out),
         viz.windowing_figure(viz.load_volume(cases[2]), out),
         viz.orientation_figure(cases[:2], out),
+        viz.orientation_figure(cases[:1], tmp_path / "single"),
     ]
     for path in paths:
         assert path.exists() and path.stat().st_size > 10_000
