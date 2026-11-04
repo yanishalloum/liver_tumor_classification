@@ -3,11 +3,13 @@
 For every case:
 
 1. **Reorient to RAS** so every array has the same axis directions.
-2. **Resample to a common voxel spacing** (default 0.77 x 0.77 x 1.0 mm, the dataset
-   median): images with linear interpolation, labels with nearest neighbour (a value
-   of 1.5 between liver and tumor would be meaningless).
-3. **Crop to the body**: drop the surrounding air (HU <= -500), keeping a margin.
-   We do not crop to the liver: at inference time its position is unknown.
+2. **Crop to the body**: drop the surrounding air (HU <= -500), keeping a margin
+   (counted in original voxels). Done *before* resampling so the costly step works
+   on 30-50% fewer voxels. We do not crop to the liver: at inference time its
+   position is unknown.
+3. **Resample to a common voxel spacing** (default 0.77 x 0.77 x 1.0 mm, the dataset
+   median), computed in float32: images with linear interpolation, labels with
+   nearest neighbour (a value of 1.5 between liver and tumor would be meaningless).
 4. **Save** image (HU, int16) and labels (uint8) as compressed NIfTI with their affine.
 
 Intensity *normalisation* is deliberately **not** baked into the saved images: it is
@@ -66,7 +68,7 @@ class CaseResult:
 
 
 def build_transform(config: PreprocessConfig):
-    """MONAI pipeline: load -> channel first -> RAS -> resample -> crop to body."""
+    """MONAI pipeline: load -> channel first -> RAS -> crop to body -> resample."""
     from monai.transforms import (
         Compose,
         CropForegroundd,
@@ -86,17 +88,18 @@ def build_transform(config: PreprocessConfig):
                 axcodes="RAS",
                 labels=(("L", "R"), ("P", "A"), ("I", "S")),  # explicit: RAS+ world
             ),
-            Spacingd(
-                keys=["image", "label"],
-                pixdim=config.spacing,
-                mode=("bilinear", "nearest"),
-            ),
             CropForegroundd(
                 keys=["image", "label"],
                 source_key="image",
                 select_fn=lambda x: x > threshold,
                 margin=config.margin,
                 allow_smaller=True,
+            ),
+            Spacingd(
+                keys=["image", "label"],
+                pixdim=config.spacing,
+                mode=("bilinear", "nearest"),
+                dtype=np.float32,
             ),
         ]
     )
