@@ -21,22 +21,51 @@ def _stats(args: argparse.Namespace) -> None:
 
 
 def _split(args: argparse.Namespace) -> None:
-    from livertumor.data.split import save_split, split_cases, tumor_burden_strata
+    from livertumor.data.split import (
+        PARTS,
+        acquisition_groups,
+        rerandomized_split,
+        save_split,
+        systematic_split,
+        tumor_burden_strata,
+    )
     from livertumor.data.stats import read_stats
 
     rows = read_stats(args.stats)
-    strata = tumor_burden_strata(rows, n_bins=args.bins)
-    split = split_cases(strata, args.val, args.test, args.seed)
+    groups = acquisition_groups(rows)
+    strata = tumor_burden_strata(rows)
+    if args.rerandomize:
+        split, seed, score = rerandomized_split(
+            rows, groups, strata, args.rerandomize, args.val, args.test
+        )
+        selection = (
+            f"seed {seed} chosen among {args.rerandomize} candidates as the most balanced "
+            f"on tumor strata (max gap {score:.2f} patients); chosen before any training"
+        )
+    else:
+        seed = args.seed
+        split = systematic_split(rows, groups, args.val, args.test, seed)
+        selection = "fixed seed"
     out = save_split(
         split,
-        strata,
         args.out,
-        seed=args.seed,
+        annotations={"acquisition_group": groups, "tumor_stratum": strata},
+        seed=seed,
+        seed_selection=selection,
         val_fraction=args.val,
         test_fraction=args.test,
-        stratification=f"tumor volume, {args.bins} quantile bins + no_tumor",
+        method=(
+            "patient-level; systematic sampling on tumor volume inside each acquisition "
+            "group. Groups are inferred (runs of consecutive case ids with the same "
+            "orientation), not official site labels."
+        ),
     )
-    print({k: len(v) for k, v in split.items()}, "->", out)
+    print(f"{'':<10}" + "".join(f"{p:>7}" for p in PARTS))
+    for label, mapping in (("group", groups), ("tumor", strata)):
+        for value in sorted(set(mapping.values())):
+            counts = [sum(mapping[c] == value for c in split[p]) for p in PARTS]
+            print(f"{label + ' ' + value:<10}" + "".join(f"{n:>7}" for n in counts))
+    print("total     " + "".join(f"{len(split[p]):>7}" for p in PARTS), "->", out)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -54,8 +83,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default="splits/lits_split.json")
     p.add_argument("--val", type=float, default=0.15)
     p.add_argument("--test", type=float, default=0.2)
-    p.add_argument("--bins", type=int, default=3)
-    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--seed", type=int, default=42, help="used when --rerandomize is 0")
+    p.add_argument(
+        "--rerandomize",
+        type=int,
+        default=1000,
+        metavar="N",
+        help="try N seeds and keep the best tumor balance (0 = use --seed)",
+    )
     p.set_defaults(func=_split)
     return parser
 

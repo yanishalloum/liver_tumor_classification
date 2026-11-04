@@ -18,7 +18,7 @@ a lesion but **where** it is and **how large** it is.
 ## Roadmap
 
 - [x] **0. Foundations** — packaging (`uv`), linting (`ruff`), tests (`pytest`), CI, audit of v0
-- [ ] **1. Data** — dataset discovery & per-case statistics ✅, stratified patient-level split, exploratory analysis
+- [x] **1. Data** — per-case statistics, exploratory analysis, patient-level split balanced on acquisition group and tumor burden
 - [ ] **2. Preprocessing** — HU windowing, spacing resampling, MONAI transform pipeline
 - [ ] **3. 2D baseline** — U-Net on axial slices, Dice + cross-entropy loss, experiment tracking
 - [ ] **4. 3D models** — SegResNet / 3D U-Net with patch sampling, then an nnU-Net v2 reference
@@ -55,9 +55,46 @@ livertumor stats --data-root /path/to/lits --out lits_stats.csv
 livertumor split --stats lits_stats.csv --out splits/lits_split.json
 ```
 
-The split is made **per patient** (never per slice) and stratified by tumor burden
-(no tumor / small / medium / large), so validation and test sets contain the same mix of
-easy and hard cases as training.
+### What the data looks like
+
+Per-case statistics of all 131 scans are in [`splits/lits_stats.csv`](splits/lits_stats.csv)
+(figures: [`scripts/make_eda_figures.py`](scripts/make_eda_figures.py)).
+
+![Slice thickness per case](docs/figures/acquisition_groups.png)
+
+- **Heterogeneous geometry.** In-plane pixels range from 0.56 to 1.0 mm and slice
+  thickness from 0.7 to 5 mm (median 0.77 × 0.77 × 1.0 mm). Scans must be resampled to a
+  common spacing before training.
+- **Acquisition groups.** Consecutive case ids share orientation (LAS / RAS / LPS) and
+  scanner settings, consistent with LiTS pooling data from several hospitals. We infer
+  5 groups (A–E) from these runs; they are an inference, not official site labels.
+  Orientations differ, so volumes must also be reoriented to a common convention.
+
+![Tumor burden](docs/figures/tumor_burden.png)
+
+- **Long-tailed tumor burden.** 13 patients have no tumor; among the others, total tumor
+  volume spans five orders of magnitude (median 16 ml, mean 84 ml).
+- **Extreme class imbalance.** Tumor is a median 0.7% of the liver and far less of the
+  scan, so accuracy is meaningless; we use Dice-based losses and metrics.
+- **Tiny lesions.** Many patients have lesions under 0.01 ml (a few voxels); some are
+  likely annotation artefacts. Lesion-wise metrics will need a minimum-size rule.
+
+### Train / validation / test split
+
+[`splits/lits_split.json`](splits/lits_split.json) is shared by every experiment.
+
+1. **Per patient**, never per slice (the legacy version leaked neighbouring slices).
+2. **Balanced on acquisition group:** inside each group, patients are sorted by tumor
+   volume and dealt to train/val/test with a randomly rotated pattern (systematic
+   sampling), so every group appears in exact proportion and tumor sizes are spread.
+3. **Re-randomisation:** among 1,000 candidate seeds, the one with the most even tumor
+   strata is kept. The criterion uses data balance only and was fixed before any training.
+
+| | train | val | test |
+|---|---:|---:|---:|
+| Patients | 85 | 19 | 27 |
+| Groups A / B / C / D / E | 18 / 16 / 10 / 10 / 31 | 4 / 4 / 2 / 2 / 7 | 6 / 5 / 3 / 3 / 10 |
+| No tumor / small / medium / large | 8 / 25 / 26 / 26 | 2 / 6 / 5 / 6 | 3 / 8 / 8 / 8 |
 
 ## Compute
 
@@ -73,6 +110,7 @@ install this package and call its CLI, so every result can be reproduced on any 
 │   ├── intensity.py     # CT windowing
 │   └── cli.py           # `livertumor` command
 ├── notebooks/           # thin Kaggle runners (no logic inside)
+├── scripts/             # figure generation
 ├── splits/              # versioned train/val/test case lists
 ├── tests/               # unit tests on synthetic NIfTI volumes, run in CI
 └── docs/                # design notes and the v0 audit
