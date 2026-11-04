@@ -28,7 +28,7 @@ import json
 import multiprocessing
 import os
 from collections.abc import Sequence
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -204,7 +204,7 @@ def preprocess_case(
         n = min(config.samples_per_case, foreground.size)
         samples = rng.choice(foreground, size=n, replace=False).astype(np.float32)
 
-    return CaseResult(
+    result = CaseResult(
         case_id=case.case_id,
         part=part,
         image=image_path.name,
@@ -219,6 +219,8 @@ def preprocess_case(
         lr_flipped=data["lr_flipped"],
         foreground_samples=samples,
     )
+    save_record(result, out_dir)  # written last: its presence means the case is done
+    return result
 
 
 def intensity_statistics(samples: np.ndarray) -> dict[str, float]:
@@ -256,6 +258,30 @@ MANIFEST_FIELDS = [
 ]
 
 
+def record_path(volumes_dir: Path, case_id: int) -> Path:
+    """Small JSON file marking a finished case and holding its manifest row."""
+    return volumes_dir / f"case_{case_id:03d}.json"
+
+
+def save_record(result: CaseResult, volumes_dir: Path) -> None:
+    """Persist one case's results so an interrupted run can resume without it."""
+    np.save(volumes_dir / f"case_{result.case_id:03d}_samples.npy", result.foreground_samples)
+    record = {k: getattr(result, k) for k in MANIFEST_FIELDS}
+    path = record_path(volumes_dir, result.case_id)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(record))
+    tmp.replace(path)  # atomic rename: never a half-written record, even if killed here
+
+
+def load_record(volumes_dir: Path, case_id: int) -> CaseResult:
+    """Read back what :func:`save_record` wrote."""
+    record = json.loads(record_path(volumes_dir, case_id).read_text())
+    record["original_shape"] = tuple(record["original_shape"])
+    record["shape"] = tuple(record["shape"])
+    samples = np.load(volumes_dir / f"case_{case_id:03d}_samples.npy")
+    return CaseResult(**record, foreground_samples=samples)
+
+
 def preprocess_dataset(
     cases: Sequence[Case],
     split: dict[str, list[int]],
@@ -271,27 +297,36 @@ def preprocess_dataset(
     volumes_dir = out_dir / "volumes"
     # share the CPU cores between worker processes: 4 cores, 1 worker -> 4 threads each
     threads = max(1, (os.cpu_count() or 1) // max(workers, 1))
-    results: list[CaseResult] = []
-    if workers <= 1:
-        for i, case in enumerate(todo, 1):
-            results.append(
-                preprocess_case(case, part_of[case.case_id], volumes_dir, config, threads)
-            )
-            print(f"[{i:>3}/{len(todo)}] case {case.case_id}", flush=True)
-    else:
-        # "spawn" starts each worker as a fresh Python process. The default on Linux,
-        # "fork", copies the parent *including* PyTorch's thread pool, which can
-        # deadlock the child as soon as it uses several threads.
-        spawn = multiprocessing.get_context("spawn")
-        with ProcessPoolExecutor(max_workers=workers, mp_context=spawn) as pool:
-            futures = [
-                pool.submit(preprocess_case, c, part_of[c.case_id], volumes_dir, config, threads)
-                for c in todo
-            ]
-            for i, future in enumerate(futures, 1):
-                results.append(future.result())
-                print(f"[{i:>3}/{len(todo)}] case {results[-1].case_id}", flush=True)
+    # Resume: cases with a record were finished by an earlier, interrupted run.
+    done = [c for c in todo if record_path(volumes_dir, c.case_id).exists()]
+    remaining = [c for c in todo if not record_path(volumes_dir, c.case_id).exists()]
+    if done:
+        print(f"Resuming: {len(done)} cases already done, {len(remaining)} to go", flush=True)
 
+    # Each case runs in a *fresh* process ("spawn", one task per child): memory is fully
+    # returned to the system after every case, so it cannot pile up over 131 cases.
+    # Spawn also avoids the fork deadlock with PyTorch's thread pool.
+    spawn = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(
+        max_workers=max(workers, 1), mp_context=spawn, max_tasks_per_child=1
+    ) as pool:
+        futures = {
+            pool.submit(preprocess_case, c, part_of[c.case_id], volumes_dir, config, threads): c
+            for c in remaining
+        }
+        for i, future in enumerate(as_completed(futures), len(done) + 1):
+            case = futures[future]
+            try:
+                future.result()
+            except Exception as error:
+                raise RuntimeError(
+                    f"Case {case.case_id} failed ({type(error).__name__}). A killed worker "
+                    "usually means out of memory: try fewer --workers. Finished cases are "
+                    "kept; rerun the same command to resume."
+                ) from error
+            print(f"[{i:>3}/{len(todo)}] case {case.case_id}", flush=True)
+
+    results = [load_record(volumes_dir, c.case_id) for c in todo]
     stats = intensity_statistics(np.concatenate([r.foreground_samples for r in results]))
     stats["computed_on"] = "train cases only, liver + tumor voxels after resampling"
 

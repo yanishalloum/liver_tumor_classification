@@ -220,3 +220,22 @@ def test_preprocess_case_uses_requested_threads(tmp_path):
     case = _phantom(tmp_path)
     preprocess_case(case, "val", tmp_path / "out", CONFIG, num_threads=2)
     assert torch.get_num_threads() == 2
+
+
+def test_interrupted_run_resumes(tmp_path):
+    cases = [_phantom(tmp_path, case_id=i) for i in range(2)]
+    split = {"train": [0, 1], "val": [], "test": []}
+    out = tmp_path / "ds"
+    preprocess_dataset(cases, split, out, CONFIG, workers=1)
+    volumes = out / "volumes"
+    untouched = (volumes / "case_000_image.nii.gz").stat().st_mtime_ns
+
+    # simulate a crash during case 1: its record was never written
+    (volumes / "case_001.json").unlink()
+    summary = preprocess_dataset(cases, split, out, CONFIG, workers=1)
+
+    assert (volumes / "case_000_image.nii.gz").stat().st_mtime_ns == untouched  # skipped
+    assert (volumes / "case_001.json").exists()  # redone
+    rows = list(csv.DictReader((out / "manifest.csv").open()))
+    assert [r["case_id"] for r in rows] == ["0", "1"]
+    assert summary["intensity"]["n_samples"] > 0
