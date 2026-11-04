@@ -9,9 +9,11 @@ pytest.importorskip("monai")
 
 from livertumor.data import Case  # noqa: E402
 from livertumor.preprocess import (  # noqa: E402
+    FixLeftRightFlipd,
     PreprocessConfig,
     build_transform,
     intensity_statistics,
+    liver_side_offset,
     preprocess_case,
     preprocess_dataset,
 )
@@ -171,3 +173,42 @@ def test_crop_before_resampling_in_float32():
     # float32 halves memory compared with MONAI's float64 default
     spacing = transforms[names.index("Spacingd")]
     assert np.float32 in spacing.dtype
+
+
+def test_liver_side_offset_sign():
+    image = np.full((40, 10, 1), -1000.0)
+    image[10:30] = 0  # body: x from 10 to 29, centre 19.5, width 20
+    labels = np.zeros_like(image)
+    labels[24:28] = 1  # liver centre 25.5 -> (25.5 - 19.5) / 20 = +0.3
+    assert liver_side_offset(image, labels, -500) == pytest.approx(0.3)
+    assert liver_side_offset(image, labels[::-1], -500) == pytest.approx(-0.3)
+    assert liver_side_offset(image, np.zeros_like(labels), -500) == 0.0
+
+
+def test_correct_scan_is_not_flipped(processed):
+    result, _, _ = processed
+    assert not result.lr_flipped
+    assert result.liver_offset > 0.05
+
+
+def test_lying_header_is_detected_and_fixed(tmp_path):
+    # Same phantom, but the header says RAS (no x flip) while the data is stored as LAS:
+    # the liver then appears on the patient's left, as in the 3D-IRCADb cases.
+    case = _phantom(tmp_path, flip_x=False)
+    result = preprocess_case(case, "train", tmp_path / "out", CONFIG)
+    assert result.lr_flipped
+    labels = np.asarray(nib.load(tmp_path / "out" / result.label).dataobj)
+    liver_x = np.argwhere(labels == 1)[:, 0].mean()
+    assert liver_x > labels.shape[0] / 2  # back on the patient's right
+
+
+def test_ambiguous_side_is_left_alone():
+    import torch
+
+    image = torch.full((1, 40, 10, 1), -1000.0)
+    image[:, 10:30] = 0
+    labels = torch.zeros_like(image)
+    labels[:, 19:21] = 1  # liver right in the middle: offset 0
+    out = FixLeftRightFlipd(threshold_hu=-500)({"image": image, "label": labels})
+    assert not out["lr_flipped"]
+    assert torch.equal(out["image"], image)

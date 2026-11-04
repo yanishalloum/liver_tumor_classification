@@ -2,7 +2,9 @@
 
 For every case:
 
-1. **Reorient to RAS** so every array has the same axis directions.
+1. **Reorient to RAS** so every array has the same axis directions, then **check the
+   left-right side with anatomy**: if the liver ends up on the patient's left, the
+   header lied and image + labels are mirrored back (see :class:`FixLeftRightFlipd`).
 2. **Crop to the body**: drop the surrounding air (HU <= -500), keeping a margin
    (counted in original voxels). Done *before* resampling so the costly step works
    on 30-50% fewer voxels. We do not crop to the liver: at inference time its
@@ -37,6 +39,7 @@ TARGET_SPACING = (0.77, 0.77, 1.0)
 BODY_THRESHOLD_HU = -500.0
 CROP_MARGIN_VOXELS = 10
 SAMPLES_PER_CASE = 100_000
+MIN_LIVER_OFFSET = 0.05  # fraction of body width; below this the side is ambiguous
 
 
 @dataclass
@@ -64,11 +67,59 @@ class CaseResult:
     liver_ml_after: float
     tumor_ml_before: float
     tumor_ml_after: float
+    liver_offset: float
+    lr_flipped: bool
     foreground_samples: np.ndarray = field(repr=False)
 
 
+def liver_side_offset(image: np.ndarray, labels: np.ndarray, threshold_hu: float) -> float:
+    """Signed distance from the body centre to the liver centre along x, in body widths.
+
+    Arrays must be in RAS orientation, where x grows toward the patient's **right**.
+    The liver sits in the right upper abdomen, so a correct scan gives a clearly
+    positive value (typically +0.15 to +0.30). A negative value means the image is
+    mirrored left-right: the header claims an orientation the data does not have.
+    """
+    body_x = np.nonzero(image > threshold_hu)[0]
+    liver_x = np.nonzero(labels > 0)[0]
+    if body_x.size == 0 or liver_x.size == 0:
+        return 0.0
+    width = body_x.max() - body_x.min() + 1
+    return float((liver_x.mean() - body_x.mean()) / width)
+
+
+class FixLeftRightFlipd:
+    """Mirror image and labels along x when the liver is on the patient's left.
+
+    Some LiTS headers (e.g. the 3D-IRCADb cases) state an orientation that does not
+    match the data. The header cannot be trusted, so we trust anatomy instead. Image and
+    labels are flipped together; the affine is kept, which amounts to correcting the
+    header. Uses the labels, so it only applies to annotated (training/evaluation) data.
+    """
+
+    def __init__(self, threshold_hu: float, min_offset: float = MIN_LIVER_OFFSET):
+        """Store the body threshold and the minimum offset considered reliable."""
+        self.threshold_hu = threshold_hu
+        self.min_offset = min_offset
+
+    def __call__(self, data: dict) -> dict:
+        """Flip ``image`` and ``label`` if needed; record what was done."""
+        import torch
+
+        out = dict(data)
+        offset = liver_side_offset(
+            np.asarray(out["image"][0]), np.asarray(out["label"][0]), self.threshold_hu
+        )
+        out["liver_offset"] = offset
+        out["lr_flipped"] = offset < -self.min_offset
+        if out["lr_flipped"]:
+            for key in ("image", "label"):
+                out[key] = torch.flip(out[key], dims=[1])  # dim 0 is the channel
+        return out
+
+
 def build_transform(config: PreprocessConfig):
-    """MONAI pipeline: load -> channel first -> RAS -> crop to body -> resample."""
+    """MONAI pipeline: load -> channel first -> RAS -> fix L/R -> crop -> resample."""
     from monai.transforms import (
         Compose,
         CropForegroundd,
@@ -88,6 +139,7 @@ def build_transform(config: PreprocessConfig):
                 axcodes="RAS",
                 labels=(("L", "R"), ("P", "A"), ("I", "S")),  # explicit: RAS+ world
             ),
+            FixLeftRightFlipd(threshold_hu=threshold),
             CropForegroundd(
                 keys=["image", "label"],
                 source_key="image",
@@ -155,6 +207,8 @@ def preprocess_case(case: Case, part: str, out_dir: Path, config: PreprocessConf
         liver_ml_after=round(liver_after, 2),
         tumor_ml_before=round(tumor_before, 4),
         tumor_ml_after=round(tumor_after, 4),
+        liver_offset=round(data["liver_offset"], 3),
+        lr_flipped=data["lr_flipped"],
         foreground_samples=samples,
     )
 
@@ -189,6 +243,8 @@ MANIFEST_FIELDS = [
     "liver_ml_after",
     "tumor_ml_before",
     "tumor_ml_after",
+    "liver_offset",
+    "lr_flipped",
 ]
 
 
