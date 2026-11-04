@@ -212,3 +212,11 @@ def test_ambiguous_side_is_left_alone():
     out = FixLeftRightFlipd(threshold_hu=-500)({"image": image, "label": labels})
     assert not out["lr_flipped"]
     assert torch.equal(out["image"], image)
+
+
+def test_preprocess_case_uses_requested_threads(tmp_path):
+    import torch
+
+    case = _phantom(tmp_path)
+    preprocess_case(case, "val", tmp_path / "out", CONFIG, num_threads=2)
+    assert torch.get_num_threads() == 2

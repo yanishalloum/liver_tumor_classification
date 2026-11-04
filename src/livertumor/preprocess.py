@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
@@ -162,11 +163,17 @@ def _volumes_ml(labels: np.ndarray, spacing: Sequence[float]) -> tuple[float, fl
     return float((labels > 0).sum()) * voxel_ml, float((labels == 2).sum()) * voxel_ml
 
 
-def preprocess_case(case: Case, part: str, out_dir: Path, config: PreprocessConfig) -> CaseResult:
-    """Run the pipeline on one case and save the result."""
+def preprocess_case(
+    case: Case, part: str, out_dir: Path, config: PreprocessConfig, num_threads: int = 1
+) -> CaseResult:
+    """Run the pipeline on one case and save the result.
+
+    ``num_threads`` is the number of CPU cores PyTorch may use for this case. With
+    several worker processes, each gets its share of the cores.
+    """
     import torch
 
-    torch.set_num_threads(1)  # parallelism comes from worker processes
+    torch.set_num_threads(num_threads)
 
     raw_labels = nib.load(str(case.label))
     raw = np.rint(np.asarray(raw_labels.dataobj)).astype(np.uint8)
@@ -261,16 +268,19 @@ def preprocess_dataset(
     part_of = {c: p for p in ("train", "val", "test") for c in split[p]}
     todo = [c for c in cases if c.case_id in part_of]
     volumes_dir = out_dir / "volumes"
-
+    # share the CPU cores between worker processes: 4 cores, 1 worker -> 4 threads each
+    threads = max(1, (os.cpu_count() or 1) // max(workers, 1))
     results: list[CaseResult] = []
     if workers <= 1:
         for i, case in enumerate(todo, 1):
-            results.append(preprocess_case(case, part_of[case.case_id], volumes_dir, config))
+            results.append(
+                preprocess_case(case, part_of[case.case_id], volumes_dir, config, threads)
+            )
             print(f"[{i:>3}/{len(todo)}] case {case.case_id}", flush=True)
     else:
         with ProcessPoolExecutor(max_workers=workers) as pool:
             futures = [
-                pool.submit(preprocess_case, c, part_of[c.case_id], volumes_dir, config)
+                pool.submit(preprocess_case, c, part_of[c.case_id], volumes_dir, config, threads)
                 for c in todo
             ]
             for i, future in enumerate(futures, 1):
