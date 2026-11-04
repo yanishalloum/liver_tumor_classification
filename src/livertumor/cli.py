@@ -68,6 +68,19 @@ def _split(args: argparse.Namespace) -> None:
     print("total     " + "".join(f"{len(split[p]):>7}" for p in PARTS), "->", out)
 
 
+def _figures(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from livertumor import viz
+    from livertumor.data.discovery import find_cases
+
+    cases = {c.case_id: c for c in find_cases(args.data_root)}
+    out = Path(args.out)
+    print("wrote", viz.gallery_figure([viz.load_volume(cases[i]) for i in args.gallery], out))
+    print("wrote", viz.windowing_figure(viz.load_volume(cases[args.windowing]), out))
+    print("wrote", viz.orientation_figure([cases[i] for i in args.orientation], out))
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="livertumor", description=__doc__)
@@ -92,6 +105,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="try N seeds and keep the best tumor balance (0 = use --seed)",
     )
     p.set_defaults(func=_split)
+
+    p = sub.add_parser("figures", help="Render illustrative scan figures (needs [viz])")
+    p.add_argument("--data-root", nargs="+", required=True)
+    p.add_argument("--out", default="figures")
+    p.add_argument("--gallery", type=int, nargs="+", default=[38, 3, 102, 33])
+    p.add_argument("--windowing", type=int, default=102)
+    p.add_argument("--orientation", type=int, nargs="+", default=[0, 28, 53])
+    p.set_defaults(func=_figures)
     return parser
 
 
