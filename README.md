@@ -1,130 +1,62 @@
-# Liver Tumor Classification
+# Liver Tumor Segmentation on CT
 
-## About
+[![CI](https://github.com/yanishalloum/liver_tumor_classification/actions/workflows/ci.yml/badge.svg)](https://github.com/yanishalloum/liver_tumor_classification/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-This project aims at detecting tumors in liver scans using deep learning models trained on a large dataset.
+Segmentation of the **liver and liver tumors** in abdominal CT scans (LiTS dataset), built
+with PyTorch and [MONAI](https://monai.io/). A patient-level *"tumor / no tumor"* decision
+is derived from the predicted segmentation, so the model says not only **whether** there is
+a lesion but **where** it is and **how large** it is.
 
+> **Status: work in progress.** This is a full rewrite of an earlier 2D slice-classification
+> project. The original version is preserved under the tag
+> [`v0-legacy`](https://github.com/yanishalloum/liver_tumor_classification/tree/v0-legacy);
+> its shortcomings (notably patient leakage between train and test) are documented in
+> [`docs/legacy-audit.md`](docs/legacy-audit.md).
 
-## Guideline
+## Roadmap
 
-1. Clone or download the repo.
+- [x] **0. Foundations** — packaging (`uv`), linting (`ruff`), tests (`pytest`), CI, audit of v0
+- [ ] **1. Data** — LiTS download, exploratory analysis, patient-level split
+- [ ] **2. Preprocessing** — HU windowing, spacing resampling, MONAI transform pipeline
+- [ ] **3. 2D baseline** — U-Net on axial slices, Dice + cross-entropy loss, experiment tracking
+- [ ] **4. 3D models** — SegResNet / 3D U-Net with patch sampling, then an nnU-Net v2 reference
+- [ ] **5. Evaluation** — Dice, lesion-wise detection, patient-level sensitivity/specificity
+- [ ] **6. Inference & demo** — CLI, sliding-window inference, interactive demo, Docker
+- [ ] **7. Model card** — limitations, intended use, results table
 
-```
+## Quickstart
+
+Requires [uv](https://docs.astral.sh/uv/).
+
+```bash
 git clone https://github.com/yanishalloum/liver_tumor_classification.git
+cd liver_tumor_classification
+uv sync --group dev          # creates .venv and installs dependencies
+uv run pytest                # run the test suite
 ```
 
-2. Install all the dependencies:
+Training dependencies (PyTorch, MONAI) are added in step 2: `uv sync --extra train`.
+
+## Project structure
 
 ```
-pip install -r requirements.txt
+├── src/livertumor/      # installable package (preprocessing, models, evaluation)
+├── tests/               # unit tests, run in CI on every push
+├── docs/                # design notes and the v0 audit
+└── .github/workflows/   # continuous integration
 ```
 
-3. Install the database and launch preprocess.py:
+## Results
 
-## Dataset Links
+Coming with step 5. Reference points from the literature (LiTS benchmark): best tumor Dice
+≈ 0.74 and liver Dice ≈ 0.96 ([Bilic et al., 2023](https://doi.org/10.1016/j.media.2022.102680)).
 
-I used the "Liver Segmentation Database" from Kaggle:
+## Disclaimer
 
-- [Part 1](https://www.kaggle.com/datasets/andrewmvd/lits-png)
-- [Part 2](https://www.kaggle.com/datasets/andrewmvd/liver-tumor-segmentation-part-2)
-  
-## Data preprocessing
+Research and educational project. **Not a medical device**; not intended for clinical use.
 
-The dataset contains 30 NIfTI (.nii) files: 130 thoracic 3D scans and 130 segmentations 3D scans:
+## License
 
-<p align="center">
-  <img src="/result_images/3D_torax.png" width="300">
-</p>
-
-Using the nibabel library, the 3D scans are turned into 2D slices: 
-
-<p align="center">
-  <img src="/result_images/original_image.png" width="300">
-</p>
-
-After getting rid of all the scans not containing liver, there are 18.915 scans remaining.
-Then, the slices and masks are processed to be of better quality: 
-
-<p align="center">
-  <img src="/result_images/46.png" width="300">
-  <img src="/result_images/46(1).png" width="300">
-</p>
-
-The images are windowed according to the [dicom parameters](https://towardsdatascience.com/a-matter-of-grayscale-understanding-dicom-windows-1b44344d92bd) for the liver to be more visible:
-
-<p align="center">
-  <img src="/result_images/enhanced_image.png" width="300">
-</p>
-
-The scans are labeled into two classes (Sane, Tumor) using the masks: 
-
-<p align="center">
-  <img src="/result_images/classification.png" width="300">
-</p>
-
-Finally, the scans and masks are divided in train (60%), validation (20%) and test (20%)
-
-## Model training
-
-- 1st model: simple CNN model
-
-structure : 
-- Three convolutional + Max Pooling layers (relu)
-- One 512 neurons dense layer (relu)
-- One 1 neuron dense layer (sigmoid)
-<p align="center">
-  <img src="/result_images/cnn_curves.png" width="800">
-</p>
-
-<figure>
-
-  <!-- Train confusion matrix -->
-  <p align="center">
-    Train confusion matrix
-    <br>
-    <img src="/result_images/cnn_cm_train.png" width="517" alt="Matrice de confusion (Entraînement)">
-  </p>
-
-  <!-- Test confusion matrix -->
-  <p align="center">
-    Test confusion matrix
-    <br>
-    <img src="/result_images/cnn_cm.png" width="500" alt="Matrice de confusion">
-  </p>
-
-</figure>
-
-
-- 2nd model: pretrained VGG16
-
-<p align="center">
-  <img src="result_images/pretrained_vgg16_model.jpg" width="500">
-</p>
-
-<p align="center">
-  <img src="result_images/training_validation_metrics.png" width="500">
-</p>
-
-<p align="center">
-  <img src="result_images/confusion_matrix.png" width="500">
-</p>
-
-Clear overfitting issue: quickly reaches >95% accuracy on test and validation but a much lower test accuracy.
-Reasons: Structure may be too complex for the project.
-Possible solutions: Regularization: Dropout, data augmentation...
-
-- 3rd model: not pretrained VGG16
-
-
-# Performance summary 
-
-|          Model           | Accuracy |
-| ------------------------ | -------- |
-|    Simple CNN Model      |    77%   |
-|    Pretrained VGG16      |    54%   |
-|    Not pretrained VGG16  |          |
-
-# References
-
-- TWIMLfest: Fundamentals of Medical Image Processing for Deep Learning, Sam Charrington
-- Tenebris97 on Kaggle
+[MIT](LICENSE). The LiTS data has its own licence (CC BY-NC-SA 4.0) and is not redistributed here.

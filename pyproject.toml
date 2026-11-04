@@ -1,0 +1,52 @@
+[project]
+name = "livertumor"
+version = "0.1.0"
+description = "Liver and liver-tumor segmentation on CT scans (LiTS), with patient-level tumor detection derived from the segmentation."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Yanis Halloum" }]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "nibabel>=5.3",
+]
+
+[project.optional-dependencies]
+# Heavy deep-learning stack, added from step 2 onward. Kept optional so CI stays fast.
+train = [
+    "torch>=2.5",
+    "monai>=1.6.1", # 1.6.0 has a known CVE in nnUNetV2Runner
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "pre-commit>=4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/livertumor"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "NPY", "D"]
+ignore = ["D100", "D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --cov=livertumor --cov-report=term-missing"

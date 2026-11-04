@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Data and model outputs: never commit medical images or weights
+data/
+*.nii
+*.nii.gz
+*.npz
+*.pt
+*.pth
+*.ckpt
+runs/
+mlruns/
+outputs/
+
+# Notebooks checkpoints / IDE / OS
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
