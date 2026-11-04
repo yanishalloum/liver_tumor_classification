@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import csv
 import json
+import multiprocessing
 import os
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
@@ -278,7 +279,11 @@ def preprocess_dataset(
             )
             print(f"[{i:>3}/{len(todo)}] case {case.case_id}", flush=True)
     else:
-        with ProcessPoolExecutor(max_workers=workers) as pool:
+        # "spawn" starts each worker as a fresh Python process. The default on Linux,
+        # "fork", copies the parent *including* PyTorch's thread pool, which can
+        # deadlock the child as soon as it uses several threads.
+        spawn = multiprocessing.get_context("spawn")
+        with ProcessPoolExecutor(max_workers=workers, mp_context=spawn) as pool:
             futures = [
                 pool.submit(preprocess_case, c, part_of[c.case_id], volumes_dir, config, threads)
                 for c in todo
