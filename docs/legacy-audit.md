@@ -1,6 +1,6 @@
 # Audit of the legacy version (v0)
 
-The original project (tag [`v0-legacy`](../../tree/v0-legacy)) classified individual 2D CT
+The original project (branch [`v0-legacy`](../../tree/v0-legacy)) classified individual 2D CT
 slices as *healthy* or *tumor* with a small CNN (77% accuracy) and a frozen VGG16 (54%).
 This document lists what was wrong with it and how the rewrite addresses each point. It is
 kept on purpose: knowing *why* a result cannot be trusted matters as much as the result.

@@ -10,7 +10,7 @@ is derived from the predicted segmentation, so the model says not only **whether
 a lesion but **where** it is and **how large** it is.
 
 > **Status: work in progress.** This is a full rewrite of an earlier 2D slice-classification
-> project. The original version is preserved under the tag
+> project. The original version is preserved on the branch
 > [`v0-legacy`](https://github.com/yanishalloum/liver_tumor_classification/tree/v0-legacy);
 > its shortcomings (notably patient leakage between train and test) are documented in
 > [`docs/legacy-audit.md`](docs/legacy-audit.md).
