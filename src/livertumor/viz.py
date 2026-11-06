@@ -283,3 +283,23 @@ def preprocessing_figure(
     _legend(fig)
     fig.tight_layout(rect=(0, 0.05, 1, 1))
     return _save(fig, out / "preprocessing.png")
+
+
+def prediction_figure(
+    image: np.ndarray, labels: np.ndarray, pred: np.ndarray, case_id: int, out: Path
+) -> Path:
+    """Same axial slice three times: CT, ground truth, model prediction.
+
+    Arrays are preprocessed volumes (RAS). The slice is the one with the most tumor in
+    the ground truth, or in the prediction if the ground truth has none.
+    """
+    target = labels == TUMOR if (labels == TUMOR).any() else pred == TUMOR
+    z = largest_slice(target if target.any() else labels >= LIVER, axis=2)
+    img = radiological_axial(image[:, :, z])
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4.4))
+    draw(axes[0], img, title=f"Case {case_id} · axial slice {z}")
+    draw(axes[1], img, radiological_axial(labels[:, :, z]), title="Ground truth (radiologist)")
+    draw(axes[2], img, radiological_axial(pred[:, :, z]), title="Model prediction")
+    _legend(fig)
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
+    return _save(fig, Path(out) / f"prediction_case_{case_id:03d}.png")

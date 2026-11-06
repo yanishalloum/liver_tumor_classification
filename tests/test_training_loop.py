@@ -65,7 +65,8 @@ def _dataset_dir(tmp_path):
         rows.append([case_id, part, f"{case_id}_image.nii.gz", f"{case_id}_label.nii.gz"])
     with (tmp_path / "manifest.csv").open("w", newline="") as f:
         csv.writer(f).writerows([["case_id", "part", "image", "label"], *rows])
-    (tmp_path / "preprocessing.json").write_text(json.dumps({"intensity": STATS}))
+    summary = {"intensity": STATS, "config": {"spacing_mm": [1.0, 1.0, 1.0]}}
+    (tmp_path / "preprocessing.json").write_text(json.dumps(summary))
     return tmp_path
 
 

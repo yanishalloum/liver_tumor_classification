@@ -106,6 +106,22 @@ def _train(args: argparse.Namespace) -> None:
     print("results in", train(config))
 
 
+def _evaluate(args: argparse.Namespace) -> None:
+    import json
+
+    from livertumor.evaluation import evaluate_run
+
+    if args.part == "test":
+        print(
+            "WARNING: evaluating on the TEST set. Do this once, at the very end; using "
+            "test results to choose models or settings makes them optimistic."
+        )
+    summary = evaluate_run(
+        args.run_dir, args.dataset_dir, args.part, args.checkpoint, args.out_dir, args.figures
+    )
+    print(json.dumps(summary, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
     parser = argparse.ArgumentParser(prog="livertumor", description=__doc__)
@@ -163,6 +179,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="disable data augmentation (to measure its effect)",
     )
     p.set_defaults(func=_train)
+
+    p = sub.add_parser("evaluate", help="Evaluate a trained run on val (or, once, test)")
+    p.add_argument("--run-dir", required=True, help="folder with config.json and best.pt")
+    p.add_argument("--dataset-dir", required=True)
+    p.add_argument("--part", choices=["val", "test"], default="val")
+    p.add_argument("--checkpoint", default="best.pt")
+    p.add_argument("--out-dir", default=None, help="default: <run-dir>/eval_<part>")
+    p.add_argument("--figures", type=int, default=3, help="prediction figures to save")
+    p.set_defaults(func=_evaluate)
 
     p = sub.add_parser("figures", help="Render illustrative scan figures (needs [viz])")
     p.add_argument("--data-root", nargs="+", required=True)
