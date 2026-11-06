@@ -18,6 +18,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from livertumor.training.augment import AugmentConfig
 from livertumor.training.dataset import (
     SliceDataset,
     load_intensity_stats,
@@ -44,6 +45,7 @@ class TrainConfig:
     base_channels: int = 32
     num_workers: int = 3
     seed: int = 0
+    augment: bool = True
     max_val_cases: int | None = None  # evaluate on a subset to save time when debugging
 
 
@@ -101,6 +103,7 @@ def train(config: TrainConfig) -> Path:
         patch_size=config.patch_size,
         samples_per_epoch=config.samples_per_epoch,
         seed=config.seed,
+        augmentation=AugmentConfig() if config.augment else None,
     )
     loader = DataLoader(
         dataset,

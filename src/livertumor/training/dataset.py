@@ -24,6 +24,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from livertumor.training.augment import AugmentConfig, augment
 from livertumor.transforms import normalize_ct
 
 AIR_HU = -1024
@@ -108,6 +109,7 @@ class SliceDataset(Dataset):
         p_tumor: float = 0.4,
         p_liver: float = 0.4,
         seed: int = 0,
+        augmentation: AugmentConfig | None = None,
     ):
         """Index, once, which slices contain liver and which contain tumor."""
         self.volumes = list(volumes)
@@ -117,6 +119,9 @@ class SliceDataset(Dataset):
         self.samples_per_epoch = samples_per_epoch
         self.p_tumor, self.p_liver = p_tumor, p_liver
         self.rng = np.random.default_rng(seed)
+        self.augmentation = augmentation  # None: no augmentation
+        # value of air after normalisation, used to fill pixels rotated in from outside
+        self.air = (self.norm["clip_low"] - self.norm["mean"]) / self.norm["std"]
         self.liver_slices = [np.flatnonzero((v.labels > 0).any(axis=(0, 1))) for v in volumes]
         self.tumor_slices = [np.flatnonzero((v.labels == 2).any(axis=(0, 1))) for v in volumes]
 
@@ -150,6 +155,8 @@ class SliceDataset(Dataset):
         image = crop_or_pad(image, center, self.patch_size, fill=AIR_HU)
         label = crop_or_pad(label[None], center, self.patch_size, fill=0)
         image = normalize_ct(image, **self.norm)
+        if self.augmentation is not None:
+            image, label = augment(image, label, self.rng, self.augmentation, fill=self.air)
         return {
             "image": torch.from_numpy(np.ascontiguousarray(image, dtype=np.float32)),
             "label": torch.from_numpy(label.astype(np.int64)),

@@ -113,6 +113,9 @@ def test_cli_train(tmp_path):
             "4",
             "--num-workers",
             "0",
+            "--no-augment",
         ]
     )
-    assert json.loads((tmp_path / "run" / "config.json").read_text())["base_channels"] == 4
+    saved = json.loads((tmp_path / "run" / "config.json").read_text())
+    assert saved["base_channels"] == 4
+    assert saved["augment"] is False

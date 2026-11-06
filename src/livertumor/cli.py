@@ -155,6 +155,13 @@ def build_parser() -> argparse.ArgumentParser:
         ("max-val-cases", int),
     ):
         p.add_argument(f"--{name}", dest=name.replace("-", "_"), type=kind)
+    p.add_argument(
+        "--no-augment",
+        dest="augment",
+        action="store_false",
+        default=None,
+        help="disable data augmentation (to measure its effect)",
+    )
     p.set_defaults(func=_train)
 
     p = sub.add_parser("figures", help="Render illustrative scan figures (needs [viz])")

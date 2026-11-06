@@ -6,6 +6,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from livertumor.training.augment import AugmentConfig  # noqa: E402
 from livertumor.training.dataset import (  # noqa: E402
     SliceDataset,
     Volume,
@@ -100,3 +101,13 @@ def test_load_volumes_and_stats(tmp_path):
     assert [v.case_id for v in train] == [0]
     assert train[0].image.dtype == np.int16 and train[0].labels.dtype == np.uint8
     assert load_intensity_stats(tmp_path) == STATS
+
+
+def test_augmented_items_stay_valid():
+    dataset = SliceDataset(
+        [_volume()], STATS, patch_size=32, seed=0, augmentation=AugmentConfig(p_affine=1)
+    )
+    for _ in range(10):
+        item = dataset[0]
+        assert item["image"].shape == (5, 32, 32) and item["image"].dtype == torch.float32
+        assert set(item["label"].unique().tolist()) <= {0, 1, 2}
